@@ -9,8 +9,10 @@
 (defn color->writable-vec [color]
   (if color
     (as-> @(col/as-rgba color) [^double r ^double g ^double b a] 
-          [(* 255 r) (* 255 g) (* 255 b)])
-    [0 0 0]))
+          [(unchecked-byte (int (* 255 r)))
+           (unchecked-byte (int (* 255 g)))
+           (unchecked-byte (int (* 255 b)))])
+    [(int 0) (int 0) (int 0)]))
 
 (comment
   (color->writable-vec col/GREEN))
