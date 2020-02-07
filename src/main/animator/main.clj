@@ -35,3 +35,14 @@
   (start-loop! animation-fn))
 
 
+(defn reset-light-animation!
+  [animation]
+  (reset-loop!
+    (fn [state]
+      (let [ns (animation
+                 {:amplitude (si/curr-amplitude)}
+                 state)]
+        (ac/full-write! ns)
+        ns))))
+
+

@@ -17,6 +17,11 @@
   (fn [env state] (update state tag #((apply define-animation animations) env %))))
 
 
+(def info {:center-f 45
+           :center-m 165
+           :center-b 255
+           :center-s 105})
+
 (comment
   (def simple-anim
     (define-animation
@@ -47,7 +52,7 @@
                 :env {}                                     ; local stuffs. globals are passed in.
                 }}
 
-(defn map-v-only-points
+(defn- map-v-only-points
   "Map the values of leds. (f index value) -> new-value"
   [f xs]
   (into xs
@@ -55,11 +60,18 @@
               (map (fn [[k v]] [k (f k v)])))
         xs))
 
+(defn- point-mover
+  [f s]
+  (let [ids (filter #(and (number? (key %)) (<= 0 (key %) 299) (= :new-point (val %))) s)]
+    (-> (reduce (fn [acc id] (assoc acc id nil)) s ids)
+        (into (mapcat (fn [[k v]] (map (fn [nid] [nid :new-point]) (f k)))) ids))))
+
 ;; Point providers
 
 (defn init-state [is]
   (fn [env s]
     (if s s is)))
+
 
 (defn random-points [& {:keys [prob point-selection prob-fn]
                         :or   {prob            0.01
@@ -71,6 +83,7 @@
         (into s
               (map (fn [v] [v :new-point]))
               points)))))
+
 
 (defn sweep-point [& {:keys [rate count]
                       :or   {rate 1 count 1}}]
@@ -84,7 +97,27 @@
                next-p :new-point
                :rate r))))
 
+(defn relative-points [& {:keys [dist-fn]}]
+  (fn [env s]
+    (assoc s (dist-fn env s) :new-point)))
+
 ;; Geometric Motion
+
+(defn- clip [p min max]
+  (when (< min p max)))
+
+(defn- center-and-reflect-direct [center dist p]
+  [(clip (+ center p) (- center dist) (+ center dist))
+   (clip (- center p) (- center dist) (+ center dist))])
+
+(defn center-and-reflect
+  "Take a location int and mirror on all strips"
+  [& {:keys []}]
+  (let [ptmap (fn [x] (filter identity
+                              (mapcat #(center-and-reflect-direct (info %) 45 x)
+                                      [:center-b :center-f :center-m])))]
+    (fn [env s]
+      (point-mover ptmap s))))
 
 ;; Color Providers
 
@@ -117,25 +150,23 @@
 ;; Blend Fns
 
 (defn blend-overwrite [priority-map]
-  (let [priority-map (reverse priority-map)]                ;; priority-map is confused when using some. Best to reverse it for nice usage.
-    (fn [env s]
-      (let [ms (map #(get s %) priority-map)
-            get-v (fn [id] (->> ms
-                                (map #(get % id))
-                                ;(filter identity)
-                                (some identity)))]
-        (into s (map (fn [id] [id (get-v id)])) led-ids)))))
+  (fn [env s]
+    (let [ms (map #(get s %) priority-map)
+          get-v (fn [id] (->> ms
+                              (map #(get % id))
+                              ;(filter identity)
+                              (some identity)))]
+      (into s (map (fn [id] [id (get-v id)])) led-ids))))
 
 
 (defn blend-normal [priority-map]
-  (let [priority-map (reverse priority-map)]
-    (fn [env s]
-      (let [ms (map #(get s %) priority-map)
-            get-v (fn [id] (->> ms
-                                (map #(get % id))
-                                (filter identity)
-                                cu/overlay-colors))]
-        (into s (map (fn [id] [id (get-v id)])) led-ids)))))
+  (fn [env s]
+    (let [ms (map #(get s %) priority-map)
+          get-v (fn [id] (->> ms
+                              (map #(get % id))
+                              (filter identity)
+                              cu/overlay-colors))]
+      (into s (map (fn [id] [id (get-v id)])) led-ids))))
 
 (comment
 

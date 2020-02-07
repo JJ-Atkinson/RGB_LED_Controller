@@ -24,7 +24,7 @@
 
 
 
-(defn create-port [] (doto (SerialPort. "/dev/ttyUSB0")
+(defn create-port [] (doto (SerialPort. "/dev/ttyUSB1")
                        (.openPort)
                        (.setParams 921600 8 1 SerialPort/PARITY_NONE)
                        (.setFlowControlMode SerialPort/FLOWCONTROL_NONE)

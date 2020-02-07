@@ -2,7 +2,8 @@
   (:require [medley.core :as mc]
             [thi.ng.color.core :as col]
             [thi.ng.math.core :as thim]
-            [thi.ng.color.core :as thic]))
+            [thi.ng.color.core :as thic])
+  (:import (thi.ng.color.core RGBA Int24 HSLA Int32 HSVA)))
 
 
 
@@ -32,3 +33,9 @@
   (if-not (nil? color)
     (> 0.05 (col/brightness color))
     true))
+
+
+(defn extend-print [t]
+  (defmethod print-method t [o w] (print-simple (str (when o @o)) w)))
+
+(doall (map extend-print [RGBA HSLA Int24 Int32 HSVA]))
