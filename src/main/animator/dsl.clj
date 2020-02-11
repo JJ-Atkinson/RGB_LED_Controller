@@ -4,7 +4,8 @@
             [medley.core :as mc]
             [thi.ng.color.core :as col]
             [thi.ng.color.gradients :as cgr]
-            [thi.ng.math.core :as thim]))
+            [thi.ng.math.core :as thim]
+            [common.utils :as u]))
 
 (def num-leds 300)
 (def led-ids (range num-leds))
@@ -60,11 +61,7 @@
               (map (fn [[k v]] [k (f k v)])))
         xs))
 
-(defn- point-mover
-  [f s]
-  (let [ids (filter #(and (number? (key %)) (<= 0 (key %) 299) (= :new-point (val %))) s)]
-    (-> (reduce (fn [acc id] (assoc acc id nil)) s ids)
-        (into (mapcat (fn [[k v]] (map (fn [nid] [nid :new-point]) (f k)))) ids))))
+
 
 ;; Point providers
 
@@ -80,50 +77,83 @@
   (let [prob-fn (or prob-fn (fn [env state] prob))]
     (fn [env s]
       (let [points (random-sample (prob-fn env s) point-selection)]
-        (into s
-              (map (fn [v] [v :new-point]))
-              points)))))
+        (assoc s :new-points (into {}
+                                   (map (fn [v] [v 1]))
+                                   points))))))
+
+
+(defn n-points [& {:keys [count-fn count]
+                   :or   {count 1}}]
+  (let [count-fn (or count-fn (fn [env state] count))]
+    (fn [env s]
+      (let [points (map (fn [x] (rand-int num-leds)) (range (count-fn env s)))]
+        (assoc s :new-points (into {}
+                                   (map (fn [v] [v 1]))
+                                   points))))))
 
 
 (defn sweep-point [& {:keys [rate count]
                       :or   {rate 1 count 1}}]
   (fn [env s]
-    (let [last-p (get s :last-p 0)
+    (let [last-p (get s :sweep/last-p 0)
           r (cond (> last-p num-leds) (- rate)
                   (< last-p 0) rate
-                  :default (:rate s rate))
+                  :default (:sweep/rate s rate))
           next-p (+ r last-p)]
-      (assoc s :last-p next-p
-               next-p :new-point
-               :rate r))))
+      (assoc s :sweep/last-p next-p
+               :sweep/rate r
+               :new-points {next-p 1}))))
 
-(defn relative-points [& {:keys [dist-fn]}]
+
+(defn relative-points [& {:keys [dist-fn fill-in-between?] :or {fill-in-between? false}}]
   (fn [env s]
-    (assoc s (dist-fn env s) :new-point)))
+
+    (let [curr-v (dist-fn env s)
+          last-v (:relative-points/last-v s 0)
+          range (range (min curr-v last-v) (inc (max curr-v last-v)))
+          point-fill (if fill-in-between?
+                       (into {} (map (fn [v] [v 1])) range)
+                       {curr-v 1})]
+      (assoc s :new-points point-fill
+               :relative-points/last-v curr-v))))
 
 ;; Geometric Motion
 
 (defn- clip [p min max]
-  (when (< min p max)))
+  (when (< min p max) p))
 
 (defn- center-and-reflect-direct [center dist p]
   [(clip (+ center p) (- center dist) (+ center dist))
    (clip (- center p) (- center dist) (+ center dist))])
 
+(defn- center-and-reflect-all-axis [p]
+  (->> (mapcat (partial apply center-and-reflect-direct)
+               [[(info :center-m) 45 p]
+                [(info :center-f) 45 p]
+                [(info :center-b) 45 p]])
+       (filter identity)))
+
 (defn center-and-reflect
   "Take a location int and mirror on all strips"
   [& {:keys []}]
-  (let [ptmap (fn [x] (filter identity
-                              (mapcat #(center-and-reflect-direct (info %) 45 x)
-                                      [:center-b :center-f :center-m])))]
+  (let [ptmap (fn [[k v]]
+                (->> (center-and-reflect-all-axis k)
+                     (into {} (map (fn [pt] [pt v])))))]
     (fn [env s]
-      (point-mover ptmap s))))
+      (update s :new-points (fn [np] (into {} (map ptmap) np))))))
 
 ;; Color Providers
 
-(defn fill-solid [& {:keys [color only-new?] :or {only-new? true}}]
+(defn fill-solid [& {:keys [color]}]
   (fn [env s]
-    (map-v-only-points #(if (or (not only-new?) (= :new-point %2)) color %2) s)))
+    (into s (map (fn [[k v]] [k color])) (or (:new-points s) {}))
+    ))
+
+
+(defn fill-random [& {:keys [colors]}]
+  (fn [env s]
+    (into s (map (fn [[k v]] [k (rand-nth colors)])) (or (:new-points s) {}))
+    ))
 
 ;; Point Transitions
 

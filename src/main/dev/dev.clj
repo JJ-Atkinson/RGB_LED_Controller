@@ -5,29 +5,38 @@
               [light-communications.ard-comms :as ac]
               [light-communications.color-utils :as cu]
               [sc.api :as scc]
+              [mount.core :as mount]
+              [animator.prebuilt]
+              [clojure.tools.namespace.repl :as tn]
               [clojure.repl :as rpl]))
 
 
-(defn start! []
-  (ac/open!)
-  ;(si/)
-  (am/start-loop! nil)
-)
+(defn start []
+  (mount/start))             ;; example on how to start app with certain states
 
-(defn printing-meta [f]
-  (binding [*print-meta* true]
-    f))
+(defn stop []
+  (mount/stop))
 
+(defn refresh []
+  (tn/refresh :after 'dev.dev/go))
 
-(defn scc-locals [ep-id]
-  (-> ep-id scc/ep-info :sc.ep/local-bindings))
+(defn refresh-all []
+  (stop)
+  (tn/refresh-all))
 
-(comment
-  (mr/autotest :files "src/main" "src/fiddles")
-  (start!)
-  
-  (do (ac/close!)
-      (ac/open!)))
+(defn go
+  "starts all states defined by defstate"
+  []
+  (start)
+  :ready)
 
+(defn reset
+  "stops all states defined by defstate, reloads modified source files, and restarts the states"
+  []
+  (stop)
+  (tn/refresh :after 'dev.dev/go))
 
-
+(comment (start)
+         sound-analysis.sound-interface/input
+         (sound-analysis.sound-interface/fft-anal)
+         (mount/start #'sound-analysis.sound-interface/amp))

@@ -1,23 +1,24 @@
-{:deps    {org.processing/core        {:mvn/version "3.3.7"}
-           quil                       {:mvn/version "3.0.0"}
+{:deps    {org.processing/core         {:mvn/version "3.3.7"}
+           quil                        {:mvn/version "3.0.0"}
 
-           midje                      {:mvn/version "1.9.6"}
-           funcool/datoteka           {:mvn/version "1.0.0"}
-           vvvvalvalval/scope-capture {:mvn/version "0.3.2"}
-           better-cond                {:mvn/version "2.1.0"}
-           medley                     {:mvn/version "1.2.0"}
-           org.scream3r/jssc          {:mvn/version "2.8.0"}
-           thi.ng/color               {:mvn/version "1.4.0"}
-          
-           psound/psound              {:local/root "extra-deps/sound.jar"}
-           jsyn                       {:local/root "extra-deps/jsyn-20171016.jar"
-                                       :dependents [psound]}
-           fr.delthas/javamp3         {:mvn/version "1.0.1"}
-           expound                    {:mvn/version "0.8.4"}
+           midje                       {:mvn/version "1.9.6"}
+           funcool/datoteka            {:mvn/version "1.0.0"}
+           vvvvalvalval/scope-capture  {:mvn/version "0.3.2"}
+           better-cond                 {:mvn/version "2.1.0"}
+           medley                      {:mvn/version "1.2.0"}
+           org.scream3r/jssc           {:mvn/version "2.8.0"}
+           thi.ng/color                {:mvn/version "1.4.0"}
 
+           psound/psound               {:local/root "extra-deps/sound.jar"}
+           jsyn                        {:local/root "extra-deps/jsyn-20171016.jar"
+                                        :dependents [psound]}
+           fr.delthas/javamp3          {:mvn/version "1.0.1"}
+           expound                     {:mvn/version "0.8.4"}
+           mount                       {:mvn/version "0.1.12"}
+           org.clojure/tools.namespace {:mvn/version "0.3.1"}
 
-           org.clojure/clojure        {:mvn/version "1.10.1"}}
- :paths   ["src/main" "src/test" ]
+           org.clojure/clojure         {:mvn/version "1.10.1"}}
+ :paths   ["src/main" "src/test"]
 
- :aliases {:test {:extra-paths ["src/test"]}
+ :aliases {:test    {:extra-paths ["src/test"]}
            :fiddles {:extra-paths ["src/fiddles"]}}}

@@ -4,6 +4,7 @@
             [thi.ng.color.core :as col]
             [medley.core :as mc]
             [clojure.pprint :as pp]
+            [mount.core :refer [defstate]]
             )
   (:import (jssc SerialPort
                  SerialPortEvent
@@ -24,13 +25,15 @@
 
 
 
-(defn create-port [] (doto (SerialPort. "/dev/ttyUSB1")
+(defn create-port [] (doto (SerialPort. "/dev/ttyUSB0")
                        (.openPort)
                        (.setParams 921600 8 1 SerialPort/PARITY_NONE)
                        (.setFlowControlMode SerialPort/FLOWCONTROL_NONE)
                        ))
 
-(defonce port (atom nil))
+(defstate ^{:on-reload :noop} port
+          :start (create-port)
+          :stop (.closePort port))
 
 ;(defn close)
 
@@ -40,19 +43,14 @@
     255
     n))
 
-(defn open! []
-  (swap! port #(if-not % (create-port) %)))
-(defn close! []
-  (when @port (.closePort @port))
-  (reset! port nil))
 
 (defn write [vs]
-  (.writeInt @port vs))
+  (.writeInt port vs))
 
 (defn read []
-  (-> (.readBytes @port 1 ) seq first))
+  (-> (.readBytes port 1) seq first))
 
-(defn purge [] (.purgePort @port SerialPort/PURGE_RXCLEAR))
+(defn purge [] (.purgePort port SerialPort/PURGE_RXCLEAR))
 
 (defn vectorize-colors-map [colors-map]
   (->> (mapcat #(-> colors-map (get % cu/black) cu/color->writable-vec) (range 300))
@@ -61,7 +59,7 @@
 
 
 (defn full-write! [colors-map]
-  (write -2)                                      ;; reset the arduino to the head
+  (write -2)                                                ;; reset the arduino to the head
   (doall (map write (let [x (vectorize-colors-map colors-map)]
                       ;(println (take 105 x))
                       ;(println (type (first x)))
@@ -69,7 +67,7 @@
 
 
 (comment
-  
+
   (write 21)
   (read)
 

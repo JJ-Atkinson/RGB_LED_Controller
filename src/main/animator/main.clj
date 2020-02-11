@@ -24,7 +24,7 @@
 
 
 (defn start-loop! [animation-fn]
-  (swap! runner #(if % % (future (run-loop animation-fn)))))
+  (swap! runner #(if % % (future (run-loop animation-fn :init-state [])))))
 
 (defn stop-loop! []
   (as-> @runner f (when f (future-cancel f)))
@@ -36,13 +36,12 @@
 
 
 (defn reset-light-animation!
-  [animation]
+  [env-fn animation]
   (reset-loop!
-    (fn [state]
-      (let [ns (animation
-                 {:amplitude (si/curr-amplitude)}
-                 state)]
+    (fn [[env state]]
+      (let [ne (env-fn env) 
+            ns (animation ne state)]
         (ac/full-write! ns)
-        ns))))
+        [ne ns]))))
 
 
