@@ -28,5 +28,5 @@
 
 (defn fft-anal []
   (.analyze fft)
-  (seq (.-spectrum fft)))
+  (into [] (seq (.-spectrum fft))))
 
