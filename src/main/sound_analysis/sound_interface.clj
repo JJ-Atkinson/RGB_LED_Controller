@@ -19,7 +19,7 @@
           :start (doto (Amplitude. pap)
                    (.input input)))
 
-(def fft-band-count 1024)
+(def fft-band-count 512)
 (defstate ^{:on-reload :noop}
           fft :start (doto (FFT. pap fft-band-count)
                        (.input input)))

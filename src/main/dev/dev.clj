@@ -2,6 +2,7 @@
     (:require [midje.repl :as mr]
               [animator.main :as am]
               [sound-analysis.sound-interface :as si]
+              [sound-analysis.onset-detection]
               [light-communications.ard-comms :as ac]
               [light-communications.color-utils :as cu]
               [sc.api :as scc]
@@ -39,4 +40,5 @@
 (comment (start)
          sound-analysis.sound-interface/input
          (sound-analysis.sound-interface/fft-anal)
-         (mount/start #'sound-analysis.sound-interface/amp))
+         (mount/start #'sound-analysis.sound-interface/amp)
+         (mount/rollback!))

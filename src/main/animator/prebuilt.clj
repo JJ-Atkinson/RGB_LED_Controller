@@ -10,7 +10,7 @@
             [thi.ng.math.core :as thim]
             [thi.ng.color.presets :as pre]
             [thi.ng.color.core :as thic]
-            [sound-analysis.onset-detection :as onset-detect]
+            [sound-analysis.onset-detection :as od]
             [thi.ng.color.core :as col]))
 
 (defn spy-state [env s]
@@ -22,14 +22,32 @@
 
 
 (defn fft-env [e]
-  (let [nfft (si/fft-anal)
+  (let [nfft (:samples (first (od/last-samples 1)))
         offt (:fft e)
         high-band (range 350 500)
-        low-band (range 30  )]
+        low-band (range 30)]
     (assoc e :fft nfft
-             :fft-flux (when offt (onset-detect/flux offt nfft))
-             :fft-flux-high (when offt (onset-detect/flux offt nfft high-band))
-             :fft-flux-low (when offt (onset-detect/flux offt nfft low-band)))))
+             :fft-flux (when offt (od/flux offt nfft))
+             :fft-flux-high (when offt (od/flux offt nfft high-band))
+             :fft-flux-low (when offt (od/flux offt nfft low-band)))))
+
+(defn flux-env [e]
+  (let [samps (-> 1 od/last-samples first :samples)
+        bands (map #(od/from-band samps %) od/flux-band)
+        states (:flux/states e (replicate (count bands) {}))
+        
+        sts--beat? (map #(od/beat-detect
+                           :new-sample %1
+                           :prior-state %2
+                           :exceed-factor 2.5
+                           )
+                        bands states)
+        nstates (map first sts--beat?)
+        beats? (map second sts--beat?)
+        ]
+    (assoc e :flux/bands bands
+             :flux/states nstates
+             :flux/beats? beats?)))
 
 (defn hihat-trigger-env [e]
   (let [ov (:hihat/old-val e 2)
@@ -43,7 +61,7 @@
 (defn framecount-env [e]
   (update e :frames (fnil inc 0)))
 
-(def all-env-fn (comp amplitude-env framecount-env hihat-trigger-env #'fft-env))
+(def all-env-fn (comp amplitude-env framecount-env hihat-trigger-env #_'fft-env #'flux-env))
 
 (def fft->brightness
   (define-animation
@@ -151,39 +169,55 @@
 
 (def flux-analysis
   (define-animation
-    (isolate :level-shower-high
-             (relative-points :dist-fn (fn [env s] (-> env :fft-flux-high (or 0) double Math/abs (* 280) (max 0) int)))
-             (fill-solid :color WHITE)
-
-             (decay :rate 0.3))
-
-    (isolate :sprinkles
-             (n-points :count-fn (fn [env s] (let [count (-> env :fft-flux-high (or 0) double Math/abs (* 280))]
-                                               (if (< 30 count)
-                                                 (+ 5 (int (/ count 5))) 0))))
-             (fill-solid :color GREEN)
-             (cull-black)
-             (decay :rate 0.7))
-
-    (isolate :sprinkles-low
-             (n-points :count-fn (fn [env s] (let [count (-> env :fft-flux-low (or 0) double Math/abs (* 100))]
-                                               (if (< 30 count)
-                                                 (+ 5 (int (/ count 5))) 0))))
-             (fill-solid :color (-> pre/colors :purple col/int24))
-             (cull-black)
-             (decay :rate 0.7))
-
-    (isolate :level-shower-low
-             (relative-points :dist-fn (fn [env s] (-> env :fft-flux-low (or 0) double Math/abs (* 100) (max 0) int)))
+    (isolate :band1
+             (init-state {})
+             (decay :rate 1)
+             (relative-points :dist-fn (fn [env s]
+                                         (-> env :flux/bands (nth 0) (* 20) int))
+                              :fill-in-between? true)
              (fill-solid :color RED)
+             (cull-black))
 
-             (decay :rate 0.3))
-    (blend-normal [:level-shower-high :sprinkles  :sprinkles-low])))
+    (isolate :band1-avg
+             (init-state {})
+             (decay :rate 1)
+             (relative-points :dist-fn (fn [env s]
+                                         (-> env :flux/states (nth 0) :samples (or [])  od/average (* 20) int))
+                              :fill-in-between? false)
+             (fill-solid :color GREEN)
+             (cull-black))
+
+    (isolate :beat-sign
+             (init-state {})
+             (decay :rate 1)
+             (fn [env s] (assoc s :new-points 
+                                  (if (-> env :flux/beats? (nth 0)) {150 1} {})) )
+             (fill-solid :color BLUE)
+             (cull-black))
+
+
+    (isolate :bounce
+             (init-state {})
+             (relative-points :dist-fn (fn [env s] (int (max 0
+                                                             (* (:amplitude env) 50))))
+                              :fill-in-between? true)
+             (center-and-reflect)
+             (fill-solid :color (int24 (:purple pre/colors)))
+             (decay :rate 0.13)
+             (cull-black)
+             )
+
+
+    (blend-normal [
+                   :band1
+                   :band1-avg
+                   :beat-sign
+                   ])))
 
 (comment
   (ac/close!)
   ac/port
-  
+
 
 
   (m/reset-light-animation! #'all-env-fn #'blue-w-sweep)
